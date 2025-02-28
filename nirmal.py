@@ -40,11 +40,10 @@ gemini = genai.GenerativeModel('gemini-1.5-flash')
 # Initialize models
 embedder = SentenceTransformer('all-MiniLM-L6-v2')  # Embedding model
 
-# Load data and create FAISS index
-@st.cache_data
-def load_data():
+# Function to load data from uploaded CSV file
+def load_data(uploaded_file):
     try:
-        df = pd.read_csv('my_data.csv')  # Replace with your dataset file name
+        df = pd.read_csv(uploaded_file)
         if 'question' not in df.columns or 'answer' not in df.columns:
             st.error("The CSV file must contain 'question' and 'answer' columns.")
             st.stop()
@@ -60,13 +59,18 @@ def load_data():
         st.error(f"Failed to load data. Error: {e}")
         st.stop()
 
-# Load dataset and FAISS index
-df, faiss_index = load_data()
-
 # App Header
-st.markdown('<h1 class="chat-font">My Clone - An AI Chatbot</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
 st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
+
+# Upload CSV file
+uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
+if uploaded_file is not None:
+    df, faiss_index = load_data(uploaded_file)
+else:
+    st.warning("Please upload a CSV file to proceed.")
+    st.stop()
 
 # Function to find the closest matching question using FAISS
 def find_closest_question(query, faiss_index, df):
