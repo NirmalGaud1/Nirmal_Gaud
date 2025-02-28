@@ -65,7 +65,7 @@ df, faiss_index = load_data()
 
 # App Header
 st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
-st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
+st.markdown('<h3 class="chat-font">I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
 # Function to find the closest matching question using FAISS
@@ -76,13 +76,10 @@ def find_closest_question(query, faiss_index, df):
         return df.iloc[I[0][0]]['answer']  # Return the closest answer
     return None
 
-# Function to generate a refined answer using Gemini
-def generate_refined_answer(query, retrieved_answer):
-    prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
-    Question: {query}
-    Retrieved Answer: {retrieved_answer}
-    - Provide a detailed and accurate response.
-    - Ensure the response is grammatically correct and engaging.
+# Function to generate a response for out-of-scope questions using Gemini
+def generate_out_of_scope_response():
+    prompt = """You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
+    - If the question is outside your knowledge, respond with: "I'm sorry, I cannot answer that question."
     """
     response = gemini.generate_content(prompt)
     return response.text
@@ -104,11 +101,10 @@ if prompt := st.chat_input("Ask me anything..."):
             # Find the closest answer
             retrieved_answer = find_closest_question(prompt, faiss_index, df)
             if retrieved_answer:
-                # Generate a refined answer using Gemini
-                refined_answer = generate_refined_answer(prompt, retrieved_answer)
-                response = f"**Nirmal Gaud**:\n{refined_answer}"
+                response = f"**Nirmal Gaud**:\n{retrieved_answer}"
             else:
-                response = "**Nirmal Gaud**:\nI'm sorry, I cannot answer that question."
+                # Use Gemini for out-of-scope questions
+                response = generate_out_of_scope_response()
         except Exception as e:
             response = f"An error occurred: {e}"
     
