@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 
+# Custom CSS for styling
 st.markdown("""
 <style>
     .stApp {
@@ -32,19 +33,20 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8") 
+# Configure Google Gemini
+genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  # Replace with your Gemini API key
 gemini = genai.GenerativeModel('gemini-1.5-flash')
 
-embedder = SentenceTransformer('all-MiniLM-L6-v2')  
+# Initialize models
+embedder = SentenceTransformer('all-MiniLM-L6-v2')  # Embedding model
 
-def load_data(uploaded_file):
+# Load data and create FAISS index
+@st.cache_data
+def load_data():
     try:
-        df = pd.read_csv()
-        if 'question' not in df.columns or 'answer' not in df.columns:
-            st.error("The CSV file must contain 'question' and 'answer' columns.")
-            st.stop()
+        df = pd.read_csv('my_data.csv')  # Replace with your dataset file name
         df['context'] = df.apply(
-            lambda row: f"Question: {row['question']}\nAnswer: {row['answer']}", 
+            lambda row: f"Question: {row['Question']}\nAnswer: {row['Answer']}", 
             axis=1
         )
         embeddings = embedder.encode(df['context'].tolist())
@@ -55,24 +57,23 @@ def load_data(uploaded_file):
         st.error(f"Failed to load data. Error: {e}")
         st.stop()
 
+# Load dataset and FAISS index
+df, faiss_index = load_data()
+
+# App Header
 st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
 st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
-if uploaded_file is not None:
-    df, faiss_index = load_data(uploaded_file)
-else:
-    st.warning("Please upload a CSV file to proceed.")
-    st.stop()
-
+# Function to find the closest matching question using FAISS
 def find_closest_question(query, faiss_index, df):
     query_embedding = embedder.encode([query])
     _, I = faiss_index.search(query_embedding.astype('float32'), k=1)  # Top 1 match
     if I.size > 0:
-        return df.iloc[I[0][0]]['answer']  
+        return df.iloc[I[0][0]]['Answer']  # Return the closest answer
     return None
 
+# Function to generate a refined answer using Gemini
 def generate_refined_answer(query, retrieved_answer):
     prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
     Question: {query}
@@ -83,6 +84,7 @@ def generate_refined_answer(query, retrieved_answer):
     response = gemini.generate_content(prompt)
     return response.text
 
+# Chat Interface
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
