@@ -95,6 +95,13 @@ def handle_greeting(query):
         return "Hello! How can I assist you today?"
     return None
 
+def handle_vague_query(query):
+    # List of vague queries
+    vague_queries = ["what can you tell", "tell me something", "what do you know"]
+    if query.lower() in vague_queries:
+        return "I can tell you about my personal life, education, career, and family. For example, you can ask: 'What is your full name?' or 'What do you do?'"
+    return None
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -113,14 +120,19 @@ if prompt := st.chat_input("Ask me anything..."):
             if greeting_response:
                 response = f"**Nirmal Gaud**:\n{greeting_response}"
             else:
-                # Find the closest answer
-                retrieved_answer, similarity_score = find_closest_question(prompt, df, similarity_threshold=0.7)
-                if retrieved_answer:
-                    # Generate a refined answer using Gemini
-                    refined_answer = generate_refined_answer(prompt, retrieved_answer)
-                    response = f"**Nirmal Gaud**:\n{refined_answer}"
+                # Check if the query is vague
+                vague_response = handle_vague_query(prompt)
+                if vague_response:
+                    response = f"**Nirmal Gaud**:\n{vague_response}"
                 else:
-                    response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
+                    # Find the closest answer
+                    retrieved_answer, similarity_score = find_closest_question(prompt, df, similarity_threshold=0.7)
+                    if retrieved_answer:
+                        # Generate a refined answer using Gemini
+                        refined_answer = generate_refined_answer(prompt, retrieved_answer)
+                        response = f"**Nirmal Gaud**:\n{refined_answer}"
+                    else:
+                        response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
         except Exception as e:
             response = f"An error occurred: {e}"
     
