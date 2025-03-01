@@ -36,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- API Keys and Models ---
-genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  # Replace with your API key
+genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  # Replace with your actual API key
 gemini = genai.GenerativeModel('gemini-1.5-flash')
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -44,7 +44,7 @@ embedder = SentenceTransformer('all-MiniLM-L6-v2')
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv('my_data.csv')  # Replace with your dataset file name
+        df = pd.read_csv('my_data.csv')
         if 'question' not in df.columns or 'answer' not in df.columns:
             st.error("The CSV file must contain 'question' and 'answer' columns.")
             st.stop()
@@ -66,8 +66,8 @@ def load_data():
 df, faiss_index = load_data()
 
 # --- UI Setup ---
-st.markdown('<h1 class="chat-font"> Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
-st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
+st.markdown('<h1 class="chat-font"> Nirmal Gaud Chatbot</h1>', unsafe_allow_html=True) #changed title to reflect human.
+st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as myself, Nirmal Gaud.</h3>', unsafe_allow_html=True) #changed subtitle to reflect human.
 st.markdown("---")
 
 # --- Helper Functions ---
@@ -79,11 +79,12 @@ def find_closest_question(query, faiss_index, df):
     return None
 
 def generate_refined_answer(query, retrieved_answer):
-    prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
+    prompt = f"""You are Nirmal Gaud, a human AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone, maintaining your personal style and perspective.
 Question: {query}
 Retrieved Answer: {retrieved_answer}
-- Provide a detailed and accurate response.
+- Provide a detailed and accurate response, as you would naturally.
 - Ensure the response is grammatically correct and engaging.
+- Express your own opinions and experiences where relevant.
 """
     try:
         response = gemini.generate_content(prompt)
@@ -97,7 +98,7 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"], avatar=None if message["role"] == "user" else None):
-        st.markdown(message["content"], unsafe_allow_html=True) #added unsafe_allow_html=true to allow for styling
+        st.markdown(message["content"], unsafe_allow_html=True)
 
 if prompt := st.chat_input("Ask me anything..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -109,7 +110,7 @@ if prompt := st.chat_input("Ask me anything..."):
                 refined_answer = generate_refined_answer(prompt, retrieved_answer)
                 response = f"**Nirmal Gaud**:\n{refined_answer}"
             else:
-                response = "**Nirmal Gaud**:\nI'm sorry, I cannot answer that question."
+                response = "**Nirmal Gaud**:\nI'm sorry, I don't have a specific answer for that." #changed response to reflect human.
         except Exception as e:
             response = f"An error occurred: {e}"
 
