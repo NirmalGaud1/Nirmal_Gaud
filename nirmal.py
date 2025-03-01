@@ -40,33 +40,66 @@ genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  # Replace wi
 gemini = genai.GenerativeModel('gemini-1.5-flash')
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
-# --- Data Loading and Indexing ---
-@st.cache_data
-def load_data():
-    try:
-        df = pd.read_csv('my_data.csv')
-        if 'question' not in df.columns or 'answer' not in df.columns:
-            st.error("The CSV file must contain 'question' and 'answer' columns.")
-            st.stop()
-        # Create embeddings for all questions in the dataset
-        embeddings = embedder.encode(df['question'].tolist())
-        embeddings = np.array(embeddings).astype('float32')
-        
-        # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embeddings)
-        
-        # Build FAISS index
-        index = faiss.IndexFlatIP(embeddings.shape[1])  # Inner product for cosine similarity
-        index.add(embeddings)
-        return df, index
-    except FileNotFoundError:
-        st.error("CSV file 'my_data.csv' not found. Please ensure it exists in the same directory.")
-        st.stop()
-    except Exception as e:
-        st.error(f"Failed to load data. Error: {e}")
-        st.stop()
+# --- Embedded Dataset ---
+data = {
+    "question": [
+        "What is your full name?",
+        "Where were you born?",
+        "What is your date of birth?",
+        "What are your hobbies or interests?",
+        "What is your favorite book/movie/TV show?",
+        "What is your educational background?",
+        "What degrees or certifications do you hold?",
+        "What is your current occupation or profession?",
+        "How long have you been in your current profession?",
+        "Do you come from a large family or a small family?",
+        "What is your relationship like with your family members?",
+        "Do you have any children? If so, how many and what are their names?",
+        "What inspired you to pursue your current career path?",
+        "How did your family influence your educational choices?",
+        "Have you faced any challenges in balancing your education and family life?",
+        "What is your proudest moment related to your education?",
+        "What is your proudest moment related to your family?",
+        "Can you share a memorable experience from your professional life?",
+        "What are your career aspirations for the future?",
+        "How do you maintain a work-life balance?"
+    ],
+    "answer": [
+        "My full name is Nirmal Gaud.",
+        "I was born in Indore, Madhya Pradesh, India.",
+        "My date of birth is 3 February 1986.",
+        "Some of my hobbies include Coding and Music.",
+        "My favorite TV show is Monday Night RAW.",
+        "I am Phd degree in Computer Science and Engineering.",
+        "I have BE, ME and Phd Degrees in Computer Science and Engineering.",
+        "I am AI, ML, DL Instructor.",
+        "I have been for 17 years in this profession of teaching.",
+        "I come from a relatively small family. I have one sibling.",
+        "I have a very close relationship with my family members. We support and care for each other deeply.",
+        "Yes, I have one child. He is boy. His name is Resham Kumar Gaud.",
+        "I've always been fascinated by technology and its potential to solve real-world problems, which inspired me to pursue a career in artificial intelligence.",
+        "My family has always valued education, and their encouragement motivated me to pursue higher education and excel academically.",
+        "Balancing education and family life can be challenging, but with careful planning and support from my family, I was able to manage both effectively.",
+        "My proudest moment related to my education was when I graduated with honors from university, recognizing the hard work and dedication I put into my studies.",
+        "My proudest moment related to my family was when my children achieved their own milestones, such as winning an award or excelling in school.",
+        "One memorable experience from my professional life was when I led a successful project that significantly improved the efficiency of our company's operations, earning recognition from my colleagues and superiors.",
+        "In the future, I aspire to take on more leadership roles and contribute to innovative projects that make a positive impact on society.",
+        "I maintain a work-life balance by prioritizing tasks, setting boundaries, and making time for activities that rejuvenate me, such as spending quality time with my family and pursuing my hobbies."
+    ]
+}
 
-df, faiss_index = load_data()
+df = pd.DataFrame(data)
+
+# Create embeddings for all questions in the dataset
+embeddings = embedder.encode(df['question'].tolist())
+embeddings = np.array(embeddings).astype('float32')
+
+# Normalize embeddings for cosine similarity
+faiss.normalize_L2(embeddings)
+
+# Build FAISS index
+index = faiss.IndexFlatIP(embeddings.shape[1])  # Inner product for cosine similarity
+index.add(embeddings)
 
 # --- UI Setup ---
 st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Chatbot</h1>', unsafe_allow_html=True)
@@ -74,7 +107,7 @@ st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as myself,
 st.markdown("---")
 
 # --- Helper Functions ---
-def find_closest_question(query, faiss_index, df, similarity_threshold=0.7):
+def find_closest_question(query, faiss_index, df, similarity_threshold=0.6):  # Lowered threshold
     # Encode the query
     query_embedding = embedder.encode([query])
     query_embedding = np.array(query_embedding).astype('float32')
@@ -101,6 +134,13 @@ def generate_refined_answer(query, retrieved_answer):
     response = gemini.generate_content(prompt)
     return response.text
 
+def handle_vague_query(query):
+    # List of vague queries
+    vague_queries = ["what you can answer", "what can you tell me", "what do you know"]
+    if query.lower() in vague_queries:
+        return "I can answer questions about my personal life, education, career, and family. For example, you can ask: 'What is your full name?' or 'What do you do?'"
+    return None
+
 # --- Chat Logic ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -115,14 +155,19 @@ if prompt := st.chat_input("Ask me anything..."):
     
     with st.spinner("Thinking..."):
         try:
-            # Find the closest answer
-            retrieved_answer, similarity_score = find_closest_question(prompt, faiss_index, df, similarity_threshold=0.7)
-            if retrieved_answer:
-                # Generate a refined answer using Gemini
-                refined_answer = generate_refined_answer(prompt, retrieved_answer)
-                response = f"**Nirmal Gaud**:\n{refined_answer}"
+            # Handle vague queries
+            vague_response = handle_vague_query(prompt)
+            if vague_response:
+                response = f"**Nirmal Gaud**:\n{vague_response}"
             else:
-                response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
+                # Find the closest answer
+                retrieved_answer, similarity_score = find_closest_question(prompt, index, df, similarity_threshold=0.6)
+                if retrieved_answer:
+                    # Generate a refined answer using Gemini
+                    refined_answer = generate_refined_answer(prompt, retrieved_answer)
+                    response = f"**Nirmal Gaud**:\n{refined_answer}"
+                else:
+                    response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
         except Exception as e:
             response = f"An error occurred: {e}"
     
