@@ -70,14 +70,8 @@ def find_closest_question(query, faiss_index, df):
     return None
 
 def generate_refined_answer(query, retrieved_answer):
-    prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
-    Question: {query}
-    Retrieved Answer: {retrieved_answer}
-    - Provide a detailed and accurate response.
-    - Ensure the response is grammatically correct and engaging.
-    """
-    response = gemini.generate_content(prompt)
-    return response.text
+    # Simply return the retrieved answer without further refinement
+    return retrieved_answer
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
