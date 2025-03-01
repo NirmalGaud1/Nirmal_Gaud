@@ -49,8 +49,13 @@ def load_data():
             axis=1
         )
         embeddings = embedder.encode(df['context'].tolist())
-        index = faiss.IndexFlatL2(embeddings.shape[1])  # FAISS index for similarity search
-        index.add(np.array(embeddings).astype('float32'))
+        
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(embeddings)
+        
+        # Use IndexFlatIP for cosine similarity
+        index = faiss.IndexFlatIP(embeddings.shape[1])  # FAISS index for cosine similarity
+        index.add(embeddings.astype('float32'))
         return df, index
     except Exception as e:
         st.error(f"Failed to load data. Error: {e}")
@@ -62,12 +67,19 @@ st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_
 st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
-def find_closest_question(query, faiss_index, df):
+def find_closest_question(query, faiss_index, df, similarity_threshold=0.7):
     query_embedding = embedder.encode([query])
-    _, I = faiss_index.search(query_embedding.astype('float32'), k=1)  # Top 1 match
+    
+    # Normalize the query embedding for cosine similarity
+    faiss.normalize_L2(query_embedding)
+    
+    # Search for the closest match using cosine similarity
+    D, I = faiss_index.search(query_embedding.astype('float32'), k=1)  # Top 1 match
     if I.size > 0:
-        return df.iloc[I[0][0]]['answer']  # Return the closest answer
-    return None
+        cosine_similarity = D[0][0]  # Cosine similarity score
+        if cosine_similarity >= similarity_threshold:
+            return df.iloc[I[0][0]]['answer'], cosine_similarity  # Return the closest answer and similarity score
+    return None, 0
 
 def generate_refined_answer(query, retrieved_answer):
     # Simply return the retrieved answer without further refinement
@@ -87,13 +99,13 @@ if prompt := st.chat_input("Ask me anything..."):
     with st.spinner("Thinking..."):
         try:
             # Find the closest answer
-            retrieved_answer = find_closest_question(prompt, faiss_index, df)
+            retrieved_answer, cosine_similarity = find_closest_question(prompt, faiss_index, df, similarity_threshold=0.7)
             if retrieved_answer:
                 # Generate a refined answer using Gemini
                 refined_answer = generate_refined_answer(prompt, retrieved_answer)
                 response = f"**Nirmal Gaud**:\n{refined_answer}"
             else:
-                response = "**Nirmal Gaud**:\nI'm sorry, I cannot answer that question."
+                response = "**Nirmal Gaud**:\nI'm sorry, I don't have enough information to answer that question."
         except Exception as e:
             response = f"An error occurred: {e}"
     
