@@ -141,6 +141,16 @@ def handle_vague_query(query):
         return "I can answer questions about my personal life, education, career, and family. For example, you can ask: 'What is your full name?' or 'What do you do?'"
     return None
 
+def handle_normal_chatbot(query):
+    # Use Gemini to generate a response for queries outside the dataset
+    prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
+    Question: {query}
+    - Provide a detailed and accurate response.
+    - Ensure the response is grammatically correct and engaging.
+    """
+    response = gemini.generate_content(prompt)
+    return response.text
+
 # --- Chat Logic ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -167,7 +177,9 @@ if prompt := st.chat_input("Ask me anything..."):
                     refined_answer = generate_refined_answer(prompt, retrieved_answer)
                     response = f"**Nirmal Gaud**:\n{refined_answer}"
                 else:
-                    response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
+                    # If no match is found, use the normal chatbot
+                    normal_response = handle_normal_chatbot(prompt)
+                    response = f"**Nirmal Gaud**:\n{normal_response}"
         except Exception as e:
             response = f"An error occurred: {e}"
     
