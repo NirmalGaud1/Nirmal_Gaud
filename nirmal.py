@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+import faiss
 
 # Configure Google Generative AI
 genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  
@@ -21,32 +21,42 @@ def load_data():
             st.error("The CSV file must contain 'question' and 'answer' columns.")
             st.stop()
         # Create embeddings for all questions in the dataset
-        df['embedding'] = list(embedder.encode(df['question'].tolist()))
-        return df
+        embeddings = embedder.encode(df['question'].tolist())
+        embeddings = np.array(embeddings).astype('float32')
+        
+        # Normalize embeddings for cosine similarity
+        faiss.normalize_L2(embeddings)
+        
+        # Build FAISS index
+        index = faiss.IndexFlatIP(embeddings.shape[1])  # Inner product for cosine similarity
+        index.add(embeddings)
+        return df, index
     except Exception as e:
         st.error(f"Failed to load data. Error: {e}")
         st.stop()
 
-df = load_data()
+df, faiss_index = load_data()
 
 # Streamlit UI
 st.markdown('<h1>🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
 st.markdown('<h3>Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Function to find the best match
-def find_best_match(query, df, similarity_threshold=0.7):
+# Function to find the best match using FAISS
+def find_best_match(query, faiss_index, df, similarity_threshold=0.7):
     # Encode the query
     query_embedding = embedder.encode([query])
+    query_embedding = np.array(query_embedding).astype('float32')
     
-    # Compute cosine similarity between the query and all questions in the dataset
-    similarities = cosine_similarity(query_embedding, np.stack(df['embedding']))
-    max_similarity_index = np.argmax(similarities)
-    max_similarity = similarities[0][max_similarity_index]
+    # Normalize the query embedding
+    faiss.normalize_L2(query_embedding)
     
-    # Check if the similarity meets the threshold
-    if max_similarity >= similarity_threshold:
-        return df.iloc[max_similarity_index]['answer'], max_similarity
+    # Search for the closest match using FAISS
+    D, I = faiss_index.search(query_embedding, k=1)  # Top 1 match
+    if I.size > 0:
+        max_similarity = D[0][0]  # Cosine similarity score
+        if max_similarity >= similarity_threshold:
+            return df.iloc[I[0][0]]['answer'], max_similarity
     return None, 0
 
 # Function to refine the answer using Gemini
@@ -75,7 +85,7 @@ if prompt := st.chat_input("Ask me anything..."):
     with st.spinner("Thinking..."):
         try:
             # Find the best match
-            retrieved_answer, similarity_score = find_best_match(prompt, df, similarity_threshold=0.7)
+            retrieved_answer, similarity_score = find_best_match(prompt, faiss_index, df, similarity_threshold=0.7)
             if retrieved_answer:
                 # Refine the answer using Gemini
                 refined_answer = refine_answer_with_gemini(prompt, retrieved_answer)
