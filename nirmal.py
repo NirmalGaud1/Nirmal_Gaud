@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 st.markdown("""
 <style>
@@ -32,9 +32,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Configure Google Generative AI
 genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  
 gemini = genai.GenerativeModel('gemini-1.5-flash')
 
+# Load the embedding model
 embedder = SentenceTransformer('all-MiniLM-L6-v2') 
 
 @st.cache_data
@@ -48,42 +50,43 @@ def load_data():
             lambda row: f"Question: {row['question']}\nAnswer: {row['answer']}", 
             axis=1
         )
-        embeddings = embedder.encode(df['context'].tolist())
-        
-        # Normalize embeddings for cosine similarity
-        faiss.normalize_L2(embeddings)
-        
-        # Use IndexFlatIP for cosine similarity
-        index = faiss.IndexFlatIP(embeddings.shape[1])  # FAISS index for cosine similarity
-        index.add(embeddings.astype('float32'))
-        return df, index
+        # Encode the dataset questions
+        df['embedding'] = list(embedder.encode(df['question'].tolist()))
+        return df
     except Exception as e:
         st.error(f"Failed to load data. Error: {e}")
         st.stop()
 
-df, faiss_index = load_data()
+df = load_data()
 
 st.markdown('<h1 class="chat-font">🤖 Nirmal Gaud Clone Chatbot</h1>', unsafe_allow_html=True)
 st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as Nirmal Gaud!</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
-def find_closest_question(query, faiss_index, df, similarity_threshold=0.7):
+def find_closest_question(query, df, similarity_threshold=0.7):
+    # Encode the query
     query_embedding = embedder.encode([query])
     
-    # Normalize the query embedding for cosine similarity
-    faiss.normalize_L2(query_embedding)
+    # Compute cosine similarity between the query and all questions in the dataset
+    similarities = cosine_similarity(query_embedding, np.stack(df['embedding']))
+    max_similarity_index = np.argmax(similarities)
+    max_similarity = similarities[0][max_similarity_index]
     
-    # Search for the closest match using cosine similarity
-    D, I = faiss_index.search(query_embedding.astype('float32'), k=1)  # Top 1 match
-    if I.size > 0:
-        cosine_similarity = D[0][0]  # Cosine similarity score
-        if cosine_similarity >= similarity_threshold:
-            return df.iloc[I[0][0]]['answer'], cosine_similarity  # Return the closest answer and similarity score
+    # Check if the similarity meets the threshold
+    if max_similarity >= similarity_threshold:
+        return df.iloc[max_similarity_index]['answer'], max_similarity
     return None, 0
 
 def generate_refined_answer(query, retrieved_answer):
-    # Simply return the retrieved answer without further refinement
-    return retrieved_answer
+    # Use Gemini to refine the answer
+    prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
+    Question: {query}
+    Retrieved Answer: {retrieved_answer}
+    - Provide a detailed and accurate response.
+    - Ensure the response is grammatically correct and engaging.
+    """
+    response = gemini.generate_content(prompt)
+    return response.text
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -99,7 +102,7 @@ if prompt := st.chat_input("Ask me anything..."):
     with st.spinner("Thinking..."):
         try:
             # Find the closest answer
-            retrieved_answer, cosine_similarity = find_closest_question(prompt, faiss_index, df, similarity_threshold=0.7)
+            retrieved_answer, similarity_score = find_closest_question(prompt, df, similarity_threshold=0.7)
             if retrieved_answer:
                 # Generate a refined answer using Gemini
                 refined_answer = generate_refined_answer(prompt, retrieved_answer)
