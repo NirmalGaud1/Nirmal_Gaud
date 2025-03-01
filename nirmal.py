@@ -78,11 +78,11 @@ def find_closest_question(query, df, similarity_threshold=0.7):
     return None, 0
 
 def generate_refined_answer(query, retrieved_answer):
-    # Use Gemini to refine the answer
+    # Use Gemini to make the response more conversational
     prompt = f"""You are Nirmal Gaud, an AI, ML, and DL instructor. Respond to the following question in a friendly and conversational tone:
     Question: {query}
     Retrieved Answer: {retrieved_answer}
-    - Provide a detailed and accurate response.
+    - Do not add any new information.
     - Ensure the response is grammatically correct and engaging.
     """
     response = gemini.generate_content(prompt)
