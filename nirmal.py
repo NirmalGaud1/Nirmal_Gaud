@@ -88,6 +88,13 @@ def generate_refined_answer(query, retrieved_answer):
     response = gemini.generate_content(prompt)
     return response.text
 
+def handle_greeting(query):
+    # List of common greetings
+    greetings = ["hello", "hi", "hey", "greetings", "howdy"]
+    if query.lower() in greetings:
+        return "Hello! How can I assist you today?"
+    return None
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -101,14 +108,19 @@ if prompt := st.chat_input("Ask me anything..."):
     
     with st.spinner("Thinking..."):
         try:
-            # Find the closest answer
-            retrieved_answer, similarity_score = find_closest_question(prompt, df, similarity_threshold=0.7)
-            if retrieved_answer:
-                # Generate a refined answer using Gemini
-                refined_answer = generate_refined_answer(prompt, retrieved_answer)
-                response = f"**Nirmal Gaud**:\n{refined_answer}"
+            # Check if the query is a greeting
+            greeting_response = handle_greeting(prompt)
+            if greeting_response:
+                response = f"**Nirmal Gaud**:\n{greeting_response}"
             else:
-                response = "**Nirmal Gaud**:\nI'm sorry, I don't have enough information to answer that question."
+                # Find the closest answer
+                retrieved_answer, similarity_score = find_closest_question(prompt, df, similarity_threshold=0.7)
+                if retrieved_answer:
+                    # Generate a refined answer using Gemini
+                    refined_answer = generate_refined_answer(prompt, retrieved_answer)
+                    response = f"**Nirmal Gaud**:\n{refined_answer}"
+                else:
+                    response = "**Nirmal Gaud**:\nThis is out of context. Please ask something related to my dataset."
         except Exception as e:
             response = f"An error occurred: {e}"
     
