@@ -36,7 +36,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- API Keys and Models ---
-genai.configure(api_key="AIzaSyBsq5Kd5nJgx2fejR77NT8v5Lk3PK4gbH8")  # Replace with your actual API key
+genai.configure(api_key="YOUR_API_KEY")  # Replace with your actual API key
 gemini = genai.GenerativeModel('gemini-1.5-flash')
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -66,8 +66,8 @@ def load_data():
 df, faiss_index = load_data()
 
 # --- UI Setup ---
-st.markdown('<h1 class="chat-font"> Nirmal Gaud Chatbot</h1>', unsafe_allow_html=True) #changed title to reflect human.
-st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as myself, Nirmal Gaud.</h3>', unsafe_allow_html=True) #changed subtitle to reflect human.
+st.markdown('<h1 class="chat-font"> Nirmal Gaud Chatbot</h1>', unsafe_allow_html=True)
+st.markdown('<h3 class="chat-font">Ask me anything, and I\'ll respond as myself, Nirmal Gaud.</h3>', unsafe_allow_html=True)
 st.markdown("---")
 
 # --- Helper Functions ---
@@ -87,7 +87,7 @@ Retrieved Answer: {retrieved_answer}
 - Express your own opinions and experiences where relevant.
 """
     try:
-        response = gemini.generate_content(prompt)
+        response = gemini.generate_content(prompt, generation_config=genai.types.GenerationConfig(temperature=0.2))
         return response.text
     except Exception as e:
         return f"Error generating response: {e}"
@@ -110,7 +110,7 @@ if prompt := st.chat_input("Ask me anything..."):
                 refined_answer = generate_refined_answer(prompt, retrieved_answer)
                 response = f"**Nirmal Gaud**:\n{refined_answer}"
             else:
-                response = "**Nirmal Gaud**:\nI'm sorry, I don't have a specific answer for that." #changed response to reflect human.
+                response = "**Nirmal Gaud**:\nI'm sorry, I don't have a specific answer for that."
         except Exception as e:
             response = f"An error occurred: {e}"
 
